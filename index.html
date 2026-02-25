@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🐘🐬🐭 Animal To-Do</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3F6F3F">
+<style>
+:root{
+  --bg:#F4EFE6;
+  --card:#FFFFFF;
+  --accent:#3F6F3F;
+  --text:#2E2E2E;
+  --line:rgba(0,0,0,.08);
+  --radius:20px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui;background:var(--bg);color:var(--text);}
+.wrap{max-width:720px;margin:auto;padding:24px;}
+h1{font-size:22px;margin:12px 0 18px;}
+.card{background:var(--card);border-radius:var(--radius);padding:18px;margin-bottom:16px;box-shadow:0 12px 35px rgba(0,0,0,.06);}
+.cat-card{cursor:pointer;border-left:8px solid var(--accent);font-weight:800;font-size:20px;}
+.count{font-size:13px;color:#777;margin-top:6px;}
+button{border:none;font-weight:800;cursor:pointer;}
+.btn-secondary{background:white;border:1px solid var(--line);padding:10px 16px;border-radius:14px;}
+.btn-tag{background:#F2F2F2;color:#111;padding:10px 16px;border-radius:14px;margin-right:8px;margin-bottom:8px;}
+.btn-tag.active{background:var(--accent);color:white;}
+.btn-add-pill{width:100%;margin-top:16px;padding:14px 0;border-radius:999px;background:var(--accent);color:white;font-size:16px;}
+.row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);}
+.row:last-child{border-bottom:none;}
+.title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.title.done{text-decoration:line-through;color:#777;opacity:0.7;}
+.tag{font-size:12px;background:#E4F0E4;color:var(--accent);padding:5px 10px;border-radius:999px;font-weight:800;cursor:pointer;}
+.section-title{font-size:12px;font-weight:900;color:#777;margin:10px 0 6px;}
+.small{font-size:12px;color:#777;margin-top:14px;}
+input[type=text],textarea{width:100%;padding:12px;border-radius:14px;border:1px solid var(--line);margin-bottom:12px;font-size:15px;background:#fff;}
+textarea{min-height:40px;resize:none;overflow:hidden;}
+.btn-danger{background:#E5484D;color:white;padding:12px 16px;border-radius:14px;margin-top:16px;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+
+const app = document.getElementById("app");
+
+const CATEGORIES = {
+  olifant:{label:"🐘 OLIFANT"},
+  dolfijn:{label:"🐬 DOLFIJN"},
+  muis:{label:"🐭 MUIS"},
+};
+
+const TAGS = ["klussen","hobby","huishouden","sociaal","overige"];
+
+let state = {
+  tasks: JSON.parse(localStorage.getItem("animal_tasks")||"[]"),
+  selectedTag:"klussen",
+  view:{name:"home",param:null}
+};
+
+function save(){localStorage.setItem("animal_tasks",JSON.stringify(state.tasks));}
+function setView(name,param=null){state.view={name,param};render();}
+
+function el(tag,attrs={},children=[]){
+  const n=document.createElement(tag);
+  for(const[k,v]of Object.entries(attrs)){
+    if(k==="class")n.className=v;
+    else if(k==="text")n.textContent=v;
+    else if(k.startsWith("on"))n.addEventListener(k.slice(2),v);
+    else n.setAttribute(k,v);
+  }
+  children.forEach(c=>n.appendChild(c));
+  return n;
+}
+
+function openCount(cat){return state.tasks.filter(t=>t.category===cat && !t.done).length;}
+
+function renderHome(){
+  app.innerHTML="";
+  app.appendChild(el("h1",{text:"Animal To-Do"}));
+  Object.keys(CATEGORIES).forEach(cat=>{
+    const card=el("div",{class:"card cat-card"});
+    card.innerHTML = CATEGORIES[cat].label + "<div class='count'>"+openCount(cat)+" open taken</div>";
+    card.onclick=()=>setView("category",cat);
+    app.appendChild(card);
+  });
+}
+
+function renderCategory(cat){
+  app.innerHTML="";
+  app.appendChild(el("button",{class:"btn-secondary",text:"← Terug",onclick:()=>setView("home")}));
+  app.appendChild(el("h1",{text:CATEGORIES[cat].label}));
+
+  const addCard=el("div",{class:"card"});
+  const input=el("input",{type:"text",placeholder:"Nieuwe taak..."});
+  input.onkeydown=e=>{
+    if(e.key==="Enter"&&input.value.trim()){
+      state.tasks.push({
+        id:crypto.randomUUID(),
+        title:input.value.trim(),
+        category:cat,
+        tag:state.selectedTag,
+        done:false,
+        description:"",
+        createdAt:Date.now()
+      });
+      input.value="";
+      save();
+      renderCategory(cat);
+    }
+  };
+  addCard.appendChild(input);
+
+  TAGS.forEach(t=>{
+    const b=el("button",{class:"btn-tag"+(t===state.selectedTag?" active":""),text:t});
+    b.onclick=()=>{state.selectedTag=t;renderCategory(cat);};
+    addCard.appendChild(b);
+  });
+
+  addCard.appendChild(el("button",{class:"btn-add-pill",text:"Toevoegen",onclick:()=>{
+    if(input.value.trim()){
+      state.tasks.push({
+        id:crypto.randomUUID(),
+        title:input.value.trim(),
+        category:cat,
+        tag:state.selectedTag,
+        done:false,
+        description:"",
+        createdAt:Date.now()
+      });
+      input.value="";
+      save();
+      renderCategory(cat);
+    }
+  }}));
+
+  app.appendChild(addCard);
+
+  const list=el("div",{class:"card"});
+  state.tasks.filter(t=>t.category===cat).forEach(task=>{
+    const row=el("div",{class:"row"});
+    const title=el("div",{class:"title"+(task.done?" done":""),text:task.title});
+    title.onclick=()=>setView("detail",task.id);
+    const tag=el("span",{class:"tag",text:task.tag});
+    row.appendChild(title);
+    row.appendChild(tag);
+    list.appendChild(row);
+  });
+  app.appendChild(list);
+}
+
+function renderDetail(id){
+  const task=state.tasks.find(t=>t.id===id);
+  if(!task){setView("home");return;}
+  app.innerHTML="";
+  app.appendChild(el("button",{class:"btn-secondary",text:"← Terug",onclick:()=>setView("category",task.category)}));
+  const card=el("div",{class:"card"});
+
+  card.appendChild(el("div",{class:"section-title",text:"Titel"}));
+  const ti=el("input",{type:"text"});
+  ti.value=task.title;
+  ti.oninput=e=>{task.title=e.target.value;save();};
+  card.appendChild(ti);
+
+  card.appendChild(el("div",{class:"section-title",text:"Extra informatie"}));
+  const ta=el("textarea",{});
+  ta.value=task.description||"";
+  ta.oninput=e=>{task.description=e.target.value;save();};
+  card.appendChild(ta);
+
+  const del=el("button",{class:"btn-danger",text:"Verwijderen"});
+  del.onclick=()=>{
+    if(confirm("Weet je zeker dat je deze taak wilt verwijderen?")){
+      state.tasks=state.tasks.filter(t=>t.id!==task.id);
+      save();
+      setView("category",task.category);
+    }
+  };
+  card.appendChild(del);
+
+  card.appendChild(el("div",{class:"small",text:"Aangemaakt op "+new Date(task.createdAt).toLocaleDateString("nl-NL")}));
+  app.appendChild(card);
+}
+
+function render(){
+  if(state.view.name==="home")renderHome();
+  else if(state.view.name==="category")renderCategory(state.view.param);
+  else if(state.view.name==="detail")renderDetail(state.view.param);
+}
+
+render();
+
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("service-worker.js");
+}
+
+</script>
+</body>
+</html>
